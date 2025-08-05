@@ -32,11 +32,40 @@ def clear_all_debts():
 
 # Получение всех долгов
 def get_summary():
-    cursor.execute("SELECT from_user, to_user, SUM(amount) FROM debts GROUP BY from_user, to_user")
+    # Получаем все долги
+    cursor.execute("SELECT from_user, to_user, amount FROM debts")
     rows = cursor.fetchall()
+
     if not rows:
-        return "Нет долгов 🙌"
-    return "\n".join([f"{f} должен {t}: {a}PLN" for f, t, a in rows])
+        return f"Все долги возвращены 🙌"
+
+    balance = defaultdict(float)
+
+    for from_user, to_user, amount in rows:
+        # отнимаем у должника, прибавляем получателю
+        balance[(from_user, to_user)] += amount
+
+    # Считаем итог по каждому направлению, компенсируем взаимные долги
+    net_debts = defaultdict(float)
+
+    for (from_user, to_user), amount in balance.items():
+        reverse = (to_user, from_user)
+        if reverse in net_debts:
+            if net_debts[reverse] > amount:
+                net_debts[reverse] -= amount
+            elif net_debts[reverse] < amount:
+                net_debts[(from_user, to_user)] = amount - net_debts[reverse]
+                del net_debts[reverse]
+            else:
+                del net_debts[reverse]
+        else:
+            net_debts[(from_user, to_user)] = amount
+
+    if not net_debts:
+        return f"Все долги возвращены 🙌"
+
+    lines = [f"{f} должен {t}: {round(a, 2)}PLN" for (f, t), a in net_debts.items()]
+    return f"\n".join(lines)
 
 # Парсинг долга
 def parse_debt(message):
@@ -57,7 +86,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if parsed:
             from_user, to_user, amount = parsed
             add_debt(from_user, to_user, amount)
-            await update.message.reply_text(f"Записано: @{from_user} должен @{to_user} {amount}₽")
+            await update.message.reply_text(f"Записано: @{from_user} должен @{to_user} {amount}PLN")
         else:
             await update.message.reply_text("Не удалось распознать долг. Формат: @user1 должен @user2 100")
     elif text.lower() == "обнулить долги":
@@ -72,9 +101,13 @@ def main():
     app = ApplicationBuilder().token(token).build()
 
     app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
+    app.run_webhook(
+        listen="0.0.0.0",
+        port=int(os.environ.get("PORT", 8080)),
+        webhook_url="https://tg-debps.onrender.com"
+    )
 
     print("Бот запущен...")
-    app.run_polling()
 
 if __name__ == "__main__":
     main()
