@@ -1,5 +1,5 @@
 import re
-import sqlite3
+import psycopg2
 import os
 from telegram import Update
 from telegram.ext import ApplicationBuilder, MessageHandler, filters, ContextTypes
@@ -8,9 +8,10 @@ from collections import defaultdict
 
 load_dotenv()
 token = os.getenv("TOKEN")
+db_url = os.getenv("DATABASE_URL")
 
 # Инициализация базы данных
-conn = sqlite3.connect("debts.db", check_same_thread=False)
+conn = psycopg2.connect(db_url)
 cursor = conn.cursor()
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS debts (
@@ -23,7 +24,10 @@ conn.commit()
 
 # Добавление долга
 def add_debt(from_user, to_user, amount):
-    cursor.execute("INSERT INTO debts (from_user, to_user, amount) VALUES (?, ?, ?)", (from_user, to_user, amount))
+    cursor.execute(
+        "INSERT INTO debts (from_user, to_user, amount) VALUES (%s, %s, %s)",
+        (from_user, to_user, amount)
+    )
     conn.commit()
 
 # Очистка долгов
@@ -68,6 +72,9 @@ def get_summary():
     lines = [f"{f} должен {t}: {round(a, 2)}PLN" for (f, t), a in net_debts.items()]
     return f"\n".join(lines)
 
+def get_chat_id(update: Update) -> int:
+    return update.effective_chat.id
+
 # Парсинг долга
 def parse_debt(message):
     pattern = r"@(\w+)\s+должен\s+@(\w+)\s+(\d+(?:\.\d+)?)"
@@ -96,6 +103,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif text.lower() == "долги":
         summary = get_summary()
         await update.message.reply_text(summary)
+    elif text.lower() == "чатайди":
+        chat_id = get_chat_id(update)
+        await update.message.reply_text(f"Chat ID: `{chat_id}`")
 
 # Запуск бота
 def main():
