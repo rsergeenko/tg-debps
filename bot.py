@@ -9,6 +9,7 @@ from collections import defaultdict
 load_dotenv()
 token = os.getenv("TOKEN")
 db_url = os.getenv("DATABASE_URL")
+allowed_chat_id = int(os.getenv("CHAT_ID"))
 
 # Инициализация базы данных
 conn = psycopg2.connect(db_url)
@@ -85,6 +86,11 @@ def parse_debt(message):
 
 # Обработка сообщений
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = get_chat_id(update)
+
+    if chat_id != allowed_chat_id:
+        return
+
     if update.message is None:
         return
 
@@ -104,7 +110,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         summary = get_summary()
         await update.message.reply_text(summary)
     elif text.lower() == "чатайди":
-        chat_id = get_chat_id(update)
         await update.message.reply_text(f"Chat ID: `{chat_id}`")
 
 # Запуск бота
