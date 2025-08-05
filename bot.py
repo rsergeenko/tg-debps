@@ -4,6 +4,7 @@ import os
 from telegram import Update
 from telegram.ext import ApplicationBuilder, MessageHandler, filters, ContextTypes
 from dotenv import load_dotenv
+from collections import defaultdict
 
 load_dotenv()
 token = os.getenv("TOKEN")
