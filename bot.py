@@ -36,7 +36,7 @@ def get_summary():
     rows = cursor.fetchall()
     if not rows:
         return "Нет долгов 🙌"
-    return "\n".join([f"{f} должен {t}: {a}₽" for f, t, a in rows])
+    return "\n".join([f"{f} должен {t}: {a}PLN" for f, t, a in rows])
 
 # Парсинг долга
 def parse_debt(message):
@@ -60,7 +60,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(f"Записано: @{from_user} должен @{to_user} {amount}₽")
         else:
             await update.message.reply_text("Не удалось распознать долг. Формат: @user1 должен @user2 100")
-    elif text.lower() == "все долги вернули":
+    elif text.lower() == "обнулить долги":
         clear_all_debts()
         await update.message.reply_text("Все долги обнулены ✅")
     elif text.lower() == "долги":
